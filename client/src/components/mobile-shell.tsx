@@ -1,6 +1,6 @@
 import { Switch, Route, Link, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
-import { Home, Clock, CalendarX2, Gift, User as UserIcon, Monitor } from "lucide-react";
+import { Home, Clock, CalendarX2, Gift, User as UserIcon } from "lucide-react";
 import MobileDashboardPage from "@/pages/mobile-dashboard";
 import WerktijdenPage from "@/pages/mobile-werktijden";
 import VerlofPage from "@/pages/mobile-verlof";
@@ -23,11 +23,6 @@ const allTabs = [
   { label: "Persoonlijk", icon: UserIcon,    href: "/profiel",    perm: null },
 ];
 
-function switchToDesktop() {
-  try { localStorage.removeItem("kd_mobile_mode"); } catch {}
-  window.location.href = "/";
-}
-
 export function MobileShell() {
   const [location] = useLocation();
   const { user } = useAuth();
@@ -45,14 +40,7 @@ export function MobileShell() {
       >
         <div className="w-8" />
         <h1 className="text-white text-base font-semibold tracking-wide">{title}</h1>
-        <button
-          onClick={switchToDesktop}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-          title="Schakel naar desktopweergave"
-          data-testid="button-switch-desktop"
-        >
-          <Monitor className="h-4 w-4" />
-        </button>
+        <div className="w-8" />
       </header>
 
       {/* ── Scrollable content ───────────────────────────────────────────── */}

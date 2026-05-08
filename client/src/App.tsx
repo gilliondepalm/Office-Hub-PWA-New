@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { HelpCircle, Pencil, Save, Smartphone } from "lucide-react";
+import { HelpCircle, Pencil, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { isAdminRole } from "@shared/schema";
 import type { HelpContent } from "@shared/schema";
@@ -736,18 +736,6 @@ function AuthenticatedApp() {
           <header className="flex items-center justify-between gap-4 p-3 border-b sticky top-0 z-50 bg-background print-hide">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                title="Schakel naar mobiele weergave"
-                onClick={() => {
-                  try { localStorage.setItem("kd_mobile_mode", "1"); } catch {}
-                  window.location.href = "/";
-                }}
-                data-testid="button-mobile-toggle"
-              >
-                <Smartphone className="h-5 w-5 text-muted-foreground" />
-              </Button>
               <Button
                 variant="ghost"
                 size="icon"
