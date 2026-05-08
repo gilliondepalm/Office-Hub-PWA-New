@@ -1,0 +1,25 @@
+uploads = []
+
+[[generated]]
+id = "8Yy-t--gztUbo4UlJwN_m"
+uri = "file://uploads/App_pics/werktijden.png"
+type = "image"
+title = "werktijden office time tracking"
+
+[[outputs]]
+id = "7rPcuyNJ4_r_hHHvs_Ceb"
+uri = "file://RUN_LOCALLY.md"
+type = "text"
+title = "RUN_LOCALLY.md"
+
+[[outputs]]
+id = "VNfeI_P9q-e6Zff-El8t_"
+uri = "file://attached_assets/stock_images/rapporten.jpg"
+type = "image"
+title = "professional business reports charts graphs documents on desk modern office aerial view"
+
+[[outputs]]
+id = "dKK6IDHMkG33i5YAlsHfV"
+uri = "file://attached_assets/stock_images/productie.jpg"
+type = "image"
+title = "aerial view land surveying cartography topographic map measurement outdoor fieldwork"
