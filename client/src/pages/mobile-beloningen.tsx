@@ -118,7 +118,7 @@ function AfdelingCard({ award }: { award: YearlyAward | undefined }) {
           {hasAward ? (
             <p className="text-sm font-bold text-foreground">{award.name}</p>
           ) : (
-            <p className="text-sm text-muted-foreground">Niet toegekend</p>
+            <p className="text-sm text-muted-foreground">Nog niet toegekend</p>
           )}
         </div>
       </div>
