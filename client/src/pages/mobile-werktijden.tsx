@@ -202,8 +202,8 @@ function computeDag(datum: string, recs: Werktijd[], isAbsent: boolean): DagAnal
 
   return {
     datum,
-    dagStr:     format(d, "dd-MM"),
-    dagStrFull: format(d, "dd-MM-yyyy"),
+    dagStr:     format(d, "dd/MM"),
+    dagStrFull: format(d, "dd/MM/yyyy"),
     weekdagKort: format(d, "EEE", { locale: nl }).replace(/^\w/, c => c.toUpperCase()).slice(0, 2),
     isFriday, pairs, completePairs, incompletePairs, pauze,
     totaalWerktijdSec, targetSec, verschilSec,
@@ -330,8 +330,8 @@ export default function MobileWerktijdenPage() {
   const [openVerzuim,     setOpenVerzuim]     = useState(true);
 
   const heroSrc    = "/uploads/App_pics/werktijden.png";
-  const displayVan = vanStr ? format(new Date(vanStr + "T00:00:00"), "dd-MM-yyyy") : "";
-  const displayTm  = tmStr  ? format(new Date(tmStr  + "T00:00:00"), "dd-MM-yyyy") : "";
+  const displayVan = vanStr ? format(new Date(vanStr + "T00:00:00"), "dd/MM/yyyy") : "";
+  const displayTm  = tmStr  ? format(new Date(tmStr  + "T00:00:00"), "dd/MM/yyyy") : "";
 
   return (
     <div className="pb-8">

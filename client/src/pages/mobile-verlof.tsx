@@ -73,7 +73,7 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 function formatDateNL(s: string) {
-  try { return format(new Date(s + "T00:00:00"), "d MMM yyyy", { locale: nl }); }
+  try { return format(new Date(s + "T00:00:00"), "dd/MM/yyyy"); }
   catch { return s; }
 }
 
