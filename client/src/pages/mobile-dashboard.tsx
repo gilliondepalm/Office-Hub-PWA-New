@@ -1,13 +1,13 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
-import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, LogOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, LogOut, X, Calendar, Cake, Award, Flag, Scissors, Clock, MapPin, Tag } from "lucide-react";
 import {
   format, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   eachDayOfInterval, isSameMonth, isToday, addMonths, subMonths,
+  differenceInYears,
 } from "date-fns";
 import { nl } from "date-fns/locale";
 import type { Event, OfficialHoliday, Snipperdag, Announcement, User } from "@shared/schema";
@@ -16,12 +16,27 @@ import type { Event, OfficialHoliday, Snipperdag, Announcement, User } from "@sh
 type EntryType = "event" | "verjaardag" | "jubileum" | "feestdag" | "snipperdag";
 interface CalEntry { date: string; type: EntryType }
 
+type DayDetail =
+  | { kind: "event";      title: string; description?: string | null; time?: string | null; location?: string | null; category?: string | null }
+  | { kind: "verjaardag"; name: string;  age: number }
+  | { kind: "jubileum";   name: string;  years: number }
+  | { kind: "feestdag";   name: string }
+  | { kind: "snipperdag"; name: string };
+
 const dotColors: Record<EntryType, string> = {
   event:      "bg-green-500",
   verjaardag: "bg-pink-400",
   jubileum:   "bg-amber-400",
   feestdag:   "bg-sky-400",
   snipperdag: "bg-red-500",
+};
+
+const detailColors: Record<EntryType, { bg: string; text: string; icon: string }> = {
+  event:      { bg: "bg-green-50 dark:bg-green-950/30",  text: "text-green-700 dark:text-green-400",  icon: "text-green-600" },
+  verjaardag: { bg: "bg-pink-50 dark:bg-pink-950/30",    text: "text-pink-700 dark:text-pink-400",    icon: "text-pink-500" },
+  jubileum:   { bg: "bg-amber-50 dark:bg-amber-950/30",  text: "text-amber-700 dark:text-amber-400",  icon: "text-amber-500" },
+  feestdag:   { bg: "bg-sky-50 dark:bg-sky-950/30",      text: "text-sky-700 dark:text-sky-400",      icon: "text-sky-500" },
+  snipperdag: { bg: "bg-red-50 dark:bg-red-950/30",      text: "text-red-700 dark:text-red-400",      icon: "text-red-500" },
 };
 
 const legend: { type: EntryType; label: string }[] = [
@@ -32,7 +47,7 @@ const legend: { type: EntryType; label: string }[] = [
   { type: "snipperdag", label: "Snipperdag" },
 ];
 
-// ── Easter / Dutch holidays ───────────────────────────────────────────────────
+// ── Dutch holiday names ────────────────────────────────────────────────────────
 function computeEaster(year: number): Date {
   const a = year % 19, b = Math.floor(year / 100), c = year % 100;
   const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
@@ -44,29 +59,112 @@ function computeEaster(year: number): Date {
   return new Date(year, month - 1, day);
 }
 
-function getDutchHolidayDates(year: number): string[] {
+function getDutchHolidayMap(year: number): Record<string, string> {
   const easter = computeEaster(year);
   const add = (d: Date, n: number) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
-  const dates = [
-    new Date(year, 0, 1),
-    add(easter, -2),
-    easter,
-    add(easter, 1),
-    new Date(year, 3, 27),
-    new Date(year, 4, 5),
-    add(easter, 39),
-    add(easter, 49),
-    add(easter, 50),
-    new Date(year, 11, 25),
-    new Date(year, 11, 26),
-  ];
-  return dates.map(d => format(d, "yyyy-MM-dd"));
+  const fmt = (d: Date) => format(d, "yyyy-MM-dd");
+  return {
+    [fmt(new Date(year, 0, 1))]:    "Nieuwjaarsdag",
+    [fmt(add(easter, -2))]:          "Goede Vrijdag",
+    [fmt(easter)]:                   "Eerste Paasdag",
+    [fmt(add(easter, 1))]:           "Tweede Paasdag",
+    [fmt(new Date(year, 3, 27))]:   "Koningsdag",
+    [fmt(new Date(year, 4, 5))]:    "Bevrijdingsdag",
+    [fmt(add(easter, 39))]:          "Hemelvaartsdag",
+    [fmt(add(easter, 49))]:          "Eerste Pinksterdag",
+    [fmt(add(easter, 50))]:          "Tweede Pinksterdag",
+    [fmt(new Date(year, 11, 25))]:  "Eerste Kerstdag",
+    [fmt(new Date(year, 11, 26))]:  "Tweede Kerstdag",
+  };
+}
+
+// ── Detail icon per kind ──────────────────────────────────────────────────────
+function DetailIcon({ kind }: { kind: DayDetail["kind"] }) {
+  const cls = `h-4 w-4 ${detailColors[kind].icon}`;
+  if (kind === "event")      return <Calendar className={cls} />;
+  if (kind === "verjaardag") return <Cake className={cls} />;
+  if (kind === "jubileum")   return <Award className={cls} />;
+  if (kind === "feestdag")   return <Flag className={cls} />;
+  return <Scissors className={cls} />;
+}
+
+// ── Detail card ───────────────────────────────────────────────────────────────
+function DetailCard({ detail }: { detail: DayDetail }) {
+  const col = detailColors[detail.kind];
+  return (
+    <div className={`rounded-xl p-3 ${col.bg} space-y-1.5`}>
+      <div className="flex items-center gap-2">
+        <DetailIcon kind={detail.kind} />
+        <span className={`text-xs font-bold uppercase tracking-wide ${col.text}`}>
+          {detail.kind === "event"      ? "Evenement"
+          : detail.kind === "verjaardag" ? "Verjaardag"
+          : detail.kind === "jubileum"   ? "Jubileum"
+          : detail.kind === "feestdag"   ? "Feestdag"
+          : "Snipperdag"}
+        </span>
+      </div>
+
+      {detail.kind === "event" && (
+        <>
+          <p className="text-sm font-semibold text-foreground">{detail.title}</p>
+          {detail.description && (
+            <p className="text-xs text-muted-foreground leading-relaxed">{detail.description}</p>
+          )}
+          {(detail.time || detail.location || detail.category) && (
+            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
+              {detail.time && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Clock className="h-3 w-3" />{detail.time}
+                </span>
+              )}
+              {detail.location && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <MapPin className="h-3 w-3" />{detail.location}
+                </span>
+              )}
+              {detail.category && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Tag className="h-3 w-3" />{detail.category}
+                </span>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {detail.kind === "verjaardag" && (
+        <>
+          <p className="text-sm font-semibold text-foreground">{detail.name}</p>
+          <p className="text-xs text-muted-foreground">Wordt {detail.age} jaar</p>
+        </>
+      )}
+
+      {detail.kind === "jubileum" && (
+        <>
+          <p className="text-sm font-semibold text-foreground">{detail.name}</p>
+          <p className="text-xs text-muted-foreground">{detail.years} jaar in dienst</p>
+        </>
+      )}
+
+      {detail.kind === "feestdag" && (
+        <p className="text-sm font-semibold text-foreground">{detail.name}</p>
+      )}
+
+      {detail.kind === "snipperdag" && (
+        <>
+          <p className="text-sm font-semibold text-foreground">{detail.name}</p>
+          <p className="text-xs text-muted-foreground">Verplichte vrije dag</p>
+        </>
+      )}
+    </div>
+  );
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function MobileDashboardPage() {
   const { user, logout } = useAuth();
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   // ── Data fetching ────────────────────────────────────────────────────────
   const { data: dashboardPhoto } = useQuery<{ value: string | null }>({
@@ -90,10 +188,8 @@ export default function MobileDashboardPage() {
     const yr = currentMonth.getFullYear();
     const mo = currentMonth.getMonth();
 
-    // Events
     (events || []).forEach(e => result.push({ date: e.date, type: "event" }));
 
-    // Birthdays
     (users || []).filter(u => u.active && u.birthDate).forEach(u => {
       const bd = new Date(u.birthDate! + "T00:00:00");
       if (bd.getMonth() === mo) {
@@ -102,7 +198,6 @@ export default function MobileDashboardPage() {
       }
     });
 
-    // Anniversaries
     (users || []).filter(u => u.active && u.startDate).forEach(u => {
       const sd = new Date(u.startDate! + "T00:00:00");
       if (sd.getMonth() === mo && sd.getFullYear() < yr) {
@@ -111,16 +206,62 @@ export default function MobileDashboardPage() {
       }
     });
 
-    // Official holidays (uploaded + computed Dutch)
-    const dutchDates = getDutchHolidayDates(yr);
-    dutchDates.forEach(d => result.push({ date: d, type: "feestdag" }));
+    const dutchMap = getDutchHolidayMap(yr);
+    Object.keys(dutchMap).forEach(d => result.push({ date: d, type: "feestdag" }));
     (officialHolidays || []).forEach(h => result.push({ date: h.date, type: "feestdag" }));
-
-    // Snipperdagen
     (snipperdagen || []).forEach(s => result.push({ date: s.date, type: "snipperdag" }));
 
     return result;
   }, [events, users, officialHolidays, snipperdagen, currentMonth]);
+
+  // ── Details for selected day ──────────────────────────────────────────────
+  const selectedDetails: DayDetail[] = useMemo(() => {
+    if (!selectedDay) return [];
+    const yr = currentMonth.getFullYear();
+    const result: DayDetail[] = [];
+
+    // Events
+    (events || []).filter(e => e.date === selectedDay).forEach(e => {
+      result.push({ kind: "event", title: e.title, description: e.description, time: e.time, location: e.location, category: e.category });
+    });
+
+    // Birthdays
+    (users || []).filter(u => u.active && u.birthDate).forEach(u => {
+      const bd = new Date(u.birthDate! + "T00:00:00");
+      const mo = new Date(selectedDay + "T00:00:00").getMonth();
+      const day = new Date(selectedDay + "T00:00:00").getDate();
+      if (bd.getMonth() === mo && bd.getDate() === day) {
+        const age = differenceInYears(new Date(selectedDay + "T00:00:00"), bd);
+        result.push({ kind: "verjaardag", name: u.fullName, age });
+      }
+    });
+
+    // Anniversaries
+    (users || []).filter(u => u.active && u.startDate).forEach(u => {
+      const sd = new Date(u.startDate! + "T00:00:00");
+      const selDate = new Date(selectedDay + "T00:00:00");
+      if (sd.getMonth() === selDate.getMonth() && sd.getDate() === selDate.getDate() && sd.getFullYear() < yr) {
+        const years = differenceInYears(selDate, sd);
+        result.push({ kind: "jubileum", name: u.fullName, years });
+      }
+    });
+
+    // Dutch holidays
+    const dutchMap = getDutchHolidayMap(yr);
+    if (dutchMap[selectedDay]) {
+      result.push({ kind: "feestdag", name: dutchMap[selectedDay] });
+    }
+    (officialHolidays || []).filter(h => h.date === selectedDay).forEach(h => {
+      if (!dutchMap[selectedDay]) result.push({ kind: "feestdag", name: h.name });
+    });
+
+    // Snipperdagen
+    (snipperdagen || []).filter(s => s.date === selectedDay).forEach(s => {
+      result.push({ kind: "snipperdag", name: s.name });
+    });
+
+    return result;
+  }, [selectedDay, events, users, officialHolidays, snipperdagen, currentMonth]);
 
   // ── Calendar grid ────────────────────────────────────────────────────────
   const monthStart = startOfMonth(currentMonth);
@@ -145,6 +286,11 @@ export default function MobileDashboardPage() {
   const heroSrc = dashboardPhoto?.value || "/uploads/App_pics/dashboard.png";
   const recentAnnouncements = (announcements || []).slice(0, 10);
 
+  const selectedDateDisplay = selectedDay
+    ? format(new Date(selectedDay + "T00:00:00"), "EEEE d MMMM yyyy", { locale: nl })
+        .replace(/^\w/, c => c.toUpperCase())
+    : "";
+
   return (
     <div className="pb-4">
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
@@ -164,11 +310,10 @@ export default function MobileDashboardPage() {
             </p>
           </div>
           <button
-            onClick={async () => {
-              await logout();
-            }}
+            onClick={async () => { await logout(); }}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm text-white border border-white/30"
             aria-label="Uitloggen"
+            data-testid="button-logout"
           >
             <LogOut className="h-4 w-4" />
           </button>
@@ -184,8 +329,9 @@ export default function MobileDashboardPage() {
               {/* Month navigation */}
               <div className="flex items-center justify-between mb-4">
                 <button
-                  onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+                  onClick={() => { setCurrentMonth(subMonths(currentMonth, 1)); setSelectedDay(null); }}
                   className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-muted transition-colors"
+                  data-testid="button-prev-month"
                 >
                   <ChevronLeft className="h-4 w-4 text-muted-foreground" />
                 </button>
@@ -198,15 +344,16 @@ export default function MobileDashboardPage() {
                       variant="outline"
                       size="sm"
                       className="h-7 text-xs rounded-full px-3"
-                      onClick={() => setCurrentMonth(new Date())}
+                      onClick={() => { setCurrentMonth(new Date()); setSelectedDay(null); }}
                     >
                       Vandaag
                     </Button>
                   )}
                 </div>
                 <button
-                  onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+                  onClick={() => { setCurrentMonth(addMonths(currentMonth, 1)); setSelectedDay(null); }}
                   className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-muted transition-colors"
+                  data-testid="button-next-month"
                 >
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </button>
@@ -227,13 +374,26 @@ export default function MobileDashboardPage() {
                   const inMonth = isSameMonth(day, currentMonth);
                   const todayDate = isToday(day);
                   const types = inMonth ? entriesForDay(day) : [];
+                  const dateStr = format(day, "yyyy-MM-dd");
+                  const isSelected = selectedDay === dateStr;
+                  const hasEntries = types.length > 0;
 
                   return (
-                    <div key={day.toISOString()} className="flex flex-col items-center py-1 min-h-[44px]">
+                    <button
+                      key={day.toISOString()}
+                      disabled={!hasEntries || !inMonth}
+                      onClick={() => setSelectedDay(isSelected ? null : dateStr)}
+                      className={`flex flex-col items-center py-1 min-h-[44px] rounded-lg transition-colors
+                        ${hasEntries && inMonth ? "active:bg-muted/60" : ""}
+                        ${isSelected ? "bg-muted" : ""}
+                      `}
+                      data-testid={hasEntries ? `day-${dateStr}` : undefined}
+                    >
                       <div
                         className={`flex h-8 w-8 items-center justify-center rounded-full text-sm
                           ${!inMonth ? "text-muted-foreground/30" : "text-foreground"}
                           ${todayDate ? "border-2 border-primary font-bold text-primary" : ""}
+                          ${isSelected && !todayDate ? "bg-primary/10" : ""}
                         `}
                       >
                         {format(day, "d")}
@@ -245,7 +405,7 @@ export default function MobileDashboardPage() {
                           ))}
                         </div>
                       )}
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -261,6 +421,30 @@ export default function MobileDashboardPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* ── Day detail panel ─────────────────────────────────────── */}
+          {selectedDay && selectedDetails.length > 0 && (
+            <div className="mt-3 border border-border/60 rounded-2xl overflow-hidden bg-card">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
+                <div>
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Details</p>
+                  <p className="text-sm font-bold text-foreground capitalize">{selectedDateDisplay}</p>
+                </div>
+                <button
+                  onClick={() => setSelectedDay(null)}
+                  className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-muted transition-colors"
+                  data-testid="button-close-detail"
+                >
+                  <X className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </div>
+              <div className="p-3 space-y-2">
+                {selectedDetails.map((detail, i) => (
+                  <DetailCard key={i} detail={detail} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Announcements ─────────────────────────────────────────────── */}
