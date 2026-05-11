@@ -143,7 +143,7 @@ export default function MobileDashboardPage() {
     currentMonth.getMonth() === today.getMonth();
 
   const heroSrc = dashboardPhoto?.value || "/uploads/App_pics/dashboard.png";
-  const recentAnnouncements = (announcements || []).slice(0, 4);
+  const recentAnnouncements = (announcements || []).slice(0, 10);
 
   return (
     <div className="pb-4">
