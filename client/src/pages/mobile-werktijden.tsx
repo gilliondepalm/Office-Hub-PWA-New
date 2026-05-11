@@ -273,9 +273,15 @@ function BlokBadge({ ok }: { ok: boolean }) {
 export default function MobileWerktijdenPage() {
   const { user } = useAuth();
 
-  const defaultEnd   = new Date();
-  const defaultStart = subWeeks(defaultEnd, 5);
-  const [vanStr, setVanStr] = useState(format(defaultStart, "yyyy-MM-dd"));
+  const defaultEnd    = new Date();
+  const currentYear   = defaultEnd.getFullYear();
+  const yearMin       = `${currentYear}-01-01`;
+  const yearMax       = `${currentYear}-12-31`;
+  const defaultStart  = subWeeks(defaultEnd, 5);
+  const clampedStart  = defaultStart.getFullYear() < currentYear
+    ? new Date(currentYear, 0, 1)
+    : defaultStart;
+  const [vanStr, setVanStr] = useState(format(clampedStart, "yyyy-MM-dd"));
   const [tmStr,  setTmStr]  = useState(format(defaultEnd,   "yyyy-MM-dd"));
 
   const { data: werktijden = [], isLoading } = useQuery<Werktijd[]>({
@@ -354,13 +360,15 @@ export default function MobileWerktijdenPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Van</p>
-                <input type="date" value={vanStr} onChange={e => setVanStr(e.target.value)}
+                <input type="date" value={vanStr} min={yearMin} max={yearMax}
+                  onChange={e => setVanStr(e.target.value)}
                   className="w-full rounded-xl border border-border/60 bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                   data-testid="input-van-datum" />
               </div>
               <div>
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">T/m</p>
-                <input type="date" value={tmStr} onChange={e => setTmStr(e.target.value)}
+                <input type="date" value={tmStr} min={vanStr} max={yearMax}
+                  onChange={e => setTmStr(e.target.value)}
                   className="w-full rounded-xl border border-border/60 bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                   data-testid="input-tm-datum" />
               </div>
