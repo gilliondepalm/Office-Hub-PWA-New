@@ -39,10 +39,8 @@ type Absence = {
 const TYPE_LABELS: Record<string, string> = {
   vacation:   "Vakantie",
   sick:       "Ziekte",
-  personal:   "Geoorloofd verlof",
   bvvd:       "BVVD",
   persoonlijk:"Persoonlijk",
-  other:      "Ongeoorloofd",
 };
 
 const BVVD_REASONS = [
