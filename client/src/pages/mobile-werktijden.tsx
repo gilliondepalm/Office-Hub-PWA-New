@@ -6,7 +6,7 @@ import { nl } from "date-fns/locale";
 import { Card } from "@/components/ui/card";
 import {
   Clock, ShieldAlert, LogOut, TrendingDown, TrendingUp, Briefcase,
-  Coffee, AlertCircle,
+  Coffee, AlertCircle, ChevronDown, ChevronUp,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -213,12 +213,24 @@ function computeDag(datum: string, recs: Werktijd[], isAbsent: boolean): DagAnal
 }
 
 // ── Section header ────────────────────────────────────────────────────────────
-function SectionHeader({ icon, label, iconColor }: { icon: React.ReactNode; label: string; iconColor: string }) {
+function SectionHeader({ icon, label, iconColor, open, onToggle }: {
+  icon: React.ReactNode; label: string; iconColor: string;
+  open: boolean; onToggle: () => void;
+}) {
   return (
-    <div className="flex items-center gap-2 px-4 py-3.5 border-b border-border/40">
-      <span className={iconColor}>{icon}</span>
-      <span className="text-sm font-bold text-foreground">{label}</span>
-    </div>
+    <button
+      onClick={onToggle}
+      className="w-full flex items-center justify-between px-4 py-3.5 border-b border-border/40 active:bg-muted/40 transition-colors"
+      data-testid={`toggle-${label.toLowerCase().replace(/\s+/g, "-")}`}
+    >
+      <div className="flex items-center gap-2">
+        <span className={iconColor}>{icon}</span>
+        <span className="text-sm font-bold text-foreground">{label}</span>
+      </div>
+      <span className="text-muted-foreground">
+        {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+      </span>
+    </button>
   );
 }
 
@@ -311,6 +323,12 @@ export default function MobileWerktijdenPage() {
 
   const missedBlokRows = analyseData.filter(d => d.hasMissedBlock);
 
+  const [openWerkuren,    setOpenWerkuren]    = useState(true);
+  const [openTeLaat,      setOpenTeLaat]      = useState(true);
+  const [openTeVroegUit,  setOpenTeVroegUit]  = useState(true);
+  const [openPauze,       setOpenPauze]       = useState(true);
+  const [openVerzuim,     setOpenVerzuim]     = useState(true);
+
   const heroSrc    = "/uploads/App_pics/werktijden.png";
   const displayVan = vanStr ? format(new Date(vanStr + "T00:00:00"), "dd-MM-yyyy") : "";
   const displayTm  = tmStr  ? format(new Date(tmStr  + "T00:00:00"), "dd-MM-yyyy") : "";
@@ -389,157 +407,172 @@ export default function MobileWerktijdenPage() {
 
             {/* ── Gewerkte werkuren table ───────────────────────────────── */}
             <Card className="rounded-2xl border border-border/50 overflow-hidden">
-              <SectionHeader icon={<Clock className="h-4 w-4" />} label="Gewerkte werkuren" iconColor="text-[#2d7a3a]" />
-
-              {totalIncomplete > 0 && (
-                <div className="px-4 py-2 bg-orange-50/60 dark:bg-orange-950/20 border-b border-orange-100 dark:border-orange-900/30">
-                  <p className="text-xs font-semibold text-orange-600">Incomplete werkuren: {totalIncomplete}</p>
-                </div>
-              )}
-
-              {analyseData.length === 0 ? (
-                <div className="py-8 text-center text-sm text-muted-foreground">Geen werkuren gevonden</div>
-              ) : (
+              <SectionHeader icon={<Clock className="h-4 w-4" />} label="Gewerkte werkuren" iconColor="text-[#2d7a3a]"
+                open={openWerkuren} onToggle={() => setOpenWerkuren(v => !v)} />
+              {openWerkuren && (
                 <>
-                  <ColHeaders cols={["Datum","In","Out","Tot","±"]} template="72px 44px 44px 68px 1fr" />
-                  <div className="divide-y divide-border/20">
-                    {analyseData.map(dag =>
-                      dag.pairs.map((pair, pIdx) => {
-                        const isFirst = pIdx === 0;
-                        const isLast  = pIdx === dag.pairs.length - 1;
-                        const isOpen  = pair.outRec === null;
-                        return (
-                          <div key={`${dag.datum}-${pIdx}`}
-                            className={`grid px-4 items-center ${isOpen ? "bg-amber-50/40 dark:bg-amber-950/10" : ""}`}
-                            style={{ gridTemplateColumns: "72px 44px 44px 68px 1fr", minHeight: "32px" }}>
-                            <span className="text-xs font-semibold text-foreground py-1.5">
-                              {isFirst ? `${dag.weekdagKort} ${dag.dagStr}` : ""}
-                            </span>
-                            <span className="text-xs font-mono text-foreground py-1.5">{formatHM(pair.inTime)}</span>
-                            <span className={`text-xs font-mono py-1.5 ${isOpen ? "text-amber-500 italic" : "text-foreground"}`}>
-                              {pair.outTime ? formatHM(pair.outTime) : "open"}
-                            </span>
-                            <span className="text-xs font-mono text-foreground py-1.5">
-                              {isLast && dag.totaalWerktijdSec > 0 ? formatHMS(dag.totaalWerktijdSec) : ""}
-                            </span>
-                            <span className={`text-xs font-mono font-bold text-right py-1.5 ${
-                              !isLast || dag.totaalWerktijdSec === 0 ? ""
-                                : dag.verschilSec >= 0 ? "text-green-600" : "text-red-500"}`}>
-                              {isLast && dag.totaalWerktijdSec > 0
-                                ? `${dag.verschilSec >= 0 ? "+" : "-"}${formatHMS(Math.abs(dag.verschilSec))}`
-                                : ""}
-                            </span>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                  <div className="px-4 py-3 border-t border-border/30 bg-muted/20 flex justify-end">
-                    <span className="text-xs text-muted-foreground">
-                      Totaal: <strong className="text-foreground font-mono">{formatHMS(totalGewerkt)}</strong>
-                      {" · "}<strong className="text-foreground">{totalDagen}</strong> dag(en)
-                    </span>
-                  </div>
+                  {totalIncomplete > 0 && (
+                    <div className="px-4 py-2 bg-orange-50/60 dark:bg-orange-950/20 border-b border-orange-100 dark:border-orange-900/30">
+                      <p className="text-xs font-semibold text-orange-600">Incomplete werkuren: {totalIncomplete}</p>
+                    </div>
+                  )}
+                  {analyseData.length === 0 ? (
+                    <div className="py-8 text-center text-sm text-muted-foreground">Geen werkuren gevonden</div>
+                  ) : (
+                    <>
+                      <ColHeaders cols={["Datum","In","Out","Tot","±"]} template="72px 44px 44px 68px 1fr" />
+                      <div className="divide-y divide-border/20">
+                        {analyseData.map(dag =>
+                          dag.pairs.map((pair, pIdx) => {
+                            const isFirst = pIdx === 0;
+                            const isLast  = pIdx === dag.pairs.length - 1;
+                            const isOpen  = pair.outRec === null;
+                            return (
+                              <div key={`${dag.datum}-${pIdx}`}
+                                className={`grid px-4 items-center ${isOpen ? "bg-amber-50/40 dark:bg-amber-950/10" : ""}`}
+                                style={{ gridTemplateColumns: "72px 44px 44px 68px 1fr", minHeight: "32px" }}>
+                                <span className="text-xs font-semibold text-foreground py-1.5">
+                                  {isFirst ? `${dag.weekdagKort} ${dag.dagStr}` : ""}
+                                </span>
+                                <span className="text-xs font-mono text-foreground py-1.5">{formatHM(pair.inTime)}</span>
+                                <span className={`text-xs font-mono py-1.5 ${isOpen ? "text-amber-500 italic" : "text-foreground"}`}>
+                                  {pair.outTime ? formatHM(pair.outTime) : "open"}
+                                </span>
+                                <span className="text-xs font-mono text-foreground py-1.5">
+                                  {isLast && dag.totaalWerktijdSec > 0 ? formatHMS(dag.totaalWerktijdSec) : ""}
+                                </span>
+                                <span className={`text-xs font-mono font-bold text-right py-1.5 ${
+                                  !isLast || dag.totaalWerktijdSec === 0 ? ""
+                                    : dag.verschilSec >= 0 ? "text-green-600" : "text-red-500"}`}>
+                                  {isLast && dag.totaalWerktijdSec > 0
+                                    ? `${dag.verschilSec >= 0 ? "+" : "-"}${formatHMS(Math.abs(dag.verschilSec))}`
+                                    : ""}
+                                </span>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                      <div className="px-4 py-3 border-t border-border/30 bg-muted/20 flex justify-end">
+                        <span className="text-xs text-muted-foreground">
+                          Totaal: <strong className="text-foreground font-mono">{formatHMS(totalGewerkt)}</strong>
+                          {" · "}<strong className="text-foreground">{totalDagen}</strong> dag(en)
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </Card>
 
             {/* ── Te laat ingeklokt ─────────────────────────────────────── */}
             <Card className="rounded-2xl border border-border/50 overflow-hidden">
-              <SectionHeader icon={<Clock className="h-4 w-4" />} label="Te laat ingeklokt" iconColor="text-orange-500" />
-              {allTeLaat.length === 0 ? (
-                <div className="py-6 text-center text-sm text-muted-foreground">Geen te laat geregistreerd ✓</div>
-              ) : (
-                <>
-                  <ColHeaders cols={["Dag","Datum","Tijd"]} template="40px 1fr 1fr" />
-                  <div className="divide-y divide-border/20">
-                    {allTeLaat.map((item, i) => (
-                      <div key={i} className="grid px-4 items-center" style={{ gridTemplateColumns: "40px 1fr 1fr", minHeight: "36px" }}>
-                        <span className="text-xs font-semibold text-foreground">{item.dag.weekdagKort}</span>
-                        <span className="text-xs text-foreground">{item.dag.dagStrFull}</span>
-                        <span className="text-xs font-mono font-semibold text-orange-600">{item.tijd}</span>
-                      </div>
-                    ))}
-                  </div>
-                </>
+              <SectionHeader icon={<Clock className="h-4 w-4" />} label="Te laat ingeklokt" iconColor="text-orange-500"
+                open={openTeLaat} onToggle={() => setOpenTeLaat(v => !v)} />
+              {openTeLaat && (
+                allTeLaat.length === 0 ? (
+                  <div className="py-6 text-center text-sm text-muted-foreground">Geen te laat geregistreerd ✓</div>
+                ) : (
+                  <>
+                    <ColHeaders cols={["Dag","Datum","Tijd"]} template="40px 1fr 1fr" />
+                    <div className="divide-y divide-border/20">
+                      {allTeLaat.map((item, i) => (
+                        <div key={i} className="grid px-4 items-center" style={{ gridTemplateColumns: "40px 1fr 1fr", minHeight: "36px" }}>
+                          <span className="text-xs font-semibold text-foreground">{item.dag.weekdagKort}</span>
+                          <span className="text-xs text-foreground">{item.dag.dagStrFull}</span>
+                          <span className="text-xs font-mono font-semibold text-orange-600">{item.tijd}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )
               )}
             </Card>
 
             {/* ── Te vroeg uitgeklokt ───────────────────────────────────── */}
             <Card className="rounded-2xl border border-border/50 overflow-hidden">
-              <SectionHeader icon={<LogOut className="h-4 w-4" />} label="Te vroeg uitgeklokt" iconColor="text-orange-500" />
-              {allTeVroegUit.length === 0 ? (
-                <div className="py-6 text-center text-sm text-muted-foreground">Geen te vroeg uitgeklokt ✓</div>
-              ) : (
-                <>
-                  <ColHeaders cols={["Dag","Datum","Tijd"]} template="40px 1fr 1fr" />
-                  <div className="divide-y divide-border/20">
-                    {allTeVroegUit.map((item, i) => (
-                      <div key={i} className="grid px-4 items-center" style={{ gridTemplateColumns: "40px 1fr 1fr", minHeight: "36px" }}>
-                        <span className="text-xs font-semibold text-foreground">{item.dag.weekdagKort}</span>
-                        <span className="text-xs text-foreground">{item.dag.dagStrFull}</span>
-                        <span className="text-xs font-mono font-semibold text-orange-600">{item.tijd}</span>
-                      </div>
-                    ))}
-                  </div>
-                </>
+              <SectionHeader icon={<LogOut className="h-4 w-4" />} label="Te vroeg uitgeklokt" iconColor="text-orange-500"
+                open={openTeVroegUit} onToggle={() => setOpenTeVroegUit(v => !v)} />
+              {openTeVroegUit && (
+                allTeVroegUit.length === 0 ? (
+                  <div className="py-6 text-center text-sm text-muted-foreground">Geen te vroeg uitgeklokt ✓</div>
+                ) : (
+                  <>
+                    <ColHeaders cols={["Dag","Datum","Tijd"]} template="40px 1fr 1fr" />
+                    <div className="divide-y divide-border/20">
+                      {allTeVroegUit.map((item, i) => (
+                        <div key={i} className="grid px-4 items-center" style={{ gridTemplateColumns: "40px 1fr 1fr", minHeight: "36px" }}>
+                          <span className="text-xs font-semibold text-foreground">{item.dag.weekdagKort}</span>
+                          <span className="text-xs text-foreground">{item.dag.dagStrFull}</span>
+                          <span className="text-xs font-mono font-semibold text-orange-600">{item.tijd}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )
               )}
             </Card>
 
             {/* ── Pauze overzicht ───────────────────────────────────────── */}
             <Card className="rounded-2xl border border-border/50 overflow-hidden">
-              <SectionHeader icon={<Coffee className="h-4 w-4" />} label="Pauze overzicht" iconColor="text-[#2d7a3a]" />
-              {pauzeRows.length === 0 ? (
-                <div className="py-6 text-center text-sm text-muted-foreground">Geen pauzes gedetecteerd</div>
-              ) : (
-                <>
-                  <ColHeaders cols={["Datum","Out","In","Duur"]} template="80px 44px 44px 1fr" />
-                  <div className="divide-y divide-border/20">
-                    {pauzeRows.map(dag => (
-                      <div key={dag.datum} className="grid px-4 items-center"
-                        style={{ gridTemplateColumns: "80px 44px 44px 1fr", minHeight: "36px" }}>
-                        <span className="text-xs font-semibold text-foreground">{dag.weekdagKort} {dag.dagStr}</span>
-                        <span className="text-xs font-mono text-foreground">{formatHM(dag.pauze.outTime)}</span>
-                        <span className="text-xs font-mono text-foreground">{formatHM(dag.pauze.inTime)}</span>
-                        <span className="text-xs font-mono text-foreground text-right pr-1">{formatHMS(dag.pauze.durSec)}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="px-4 py-3 border-t border-border/30 bg-muted/20 flex justify-end">
-                    <span className="text-xs text-muted-foreground">
-                      Totaal pauze: <strong className="text-foreground font-mono">{formatHMS(totalPauzeSec)}</strong>
-                    </span>
-                  </div>
-                </>
+              <SectionHeader icon={<Coffee className="h-4 w-4" />} label="Pauze overzicht" iconColor="text-[#2d7a3a]"
+                open={openPauze} onToggle={() => setOpenPauze(v => !v)} />
+              {openPauze && (
+                pauzeRows.length === 0 ? (
+                  <div className="py-6 text-center text-sm text-muted-foreground">Geen pauzes gedetecteerd</div>
+                ) : (
+                  <>
+                    <ColHeaders cols={["Datum","Out","In","Duur"]} template="80px 44px 44px 1fr" />
+                    <div className="divide-y divide-border/20">
+                      {pauzeRows.map(dag => (
+                        <div key={dag.datum} className="grid px-4 items-center"
+                          style={{ gridTemplateColumns: "80px 44px 44px 1fr", minHeight: "36px" }}>
+                          <span className="text-xs font-semibold text-foreground">{dag.weekdagKort} {dag.dagStr}</span>
+                          <span className="text-xs font-mono text-foreground">{formatHM(dag.pauze.outTime)}</span>
+                          <span className="text-xs font-mono text-foreground">{formatHM(dag.pauze.inTime)}</span>
+                          <span className="text-xs font-mono text-foreground text-right pr-1">{formatHMS(dag.pauze.durSec)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="px-4 py-3 border-t border-border/30 bg-muted/20 flex justify-end">
+                      <span className="text-xs text-muted-foreground">
+                        Totaal pauze: <strong className="text-foreground font-mono">{formatHMS(totalPauzeSec)}</strong>
+                      </span>
+                    </div>
+                  </>
+                )
               )}
             </Card>
 
             {/* ── Verzuim — gemiste bloktijden ──────────────────────────── */}
             <Card className="rounded-2xl border border-border/50 overflow-hidden">
-              <SectionHeader icon={<AlertCircle className="h-4 w-4" />} label="Verzuim — gemiste bloktijden" iconColor="text-red-500" />
-              {missedBlokRows.length === 0 ? (
-                <div className="py-6 text-center text-sm text-muted-foreground">Alle bloktijden OK ✓</div>
-              ) : (
-                <>
-                  <ColHeaders cols={["Dag","BL1","BL2","BL3","BL4"]} template="68px 1fr 1fr 1fr 1fr" />
-                  <div className="divide-y divide-border/20">
-                    {missedBlokRows.map(dag => (
-                      <div key={dag.datum} className="grid px-4 items-center"
-                        style={{ gridTemplateColumns: "68px 1fr 1fr 1fr 1fr", minHeight: "36px" }}>
-                        <span className="text-xs font-semibold text-foreground">{dag.weekdagKort} {dag.dagStr}</span>
-                        <BlokBadge ok={dag.blok1Ok} />
-                        <BlokBadge ok={dag.blok2Ok} />
-                        <BlokBadge ok={dag.blok3Ok} />
-                        <BlokBadge ok={dag.blok4Ok} />
-                      </div>
-                    ))}
-                  </div>
-                  <div className="px-4 py-2.5 border-t border-border/30 bg-muted/20">
-                    <p className="text-[10px] text-muted-foreground leading-relaxed">
-                      BL1 = inklok 07:00–08:00 · BL2 = uitklok pauze 11:45–12:30 · BL3 = inklok na pauze 13:30–14:30 · BL4 = uitklok 16:30–18:00
-                    </p>
-                  </div>
-                </>
+              <SectionHeader icon={<AlertCircle className="h-4 w-4" />} label="Verzuim — gemiste bloktijden" iconColor="text-red-500"
+                open={openVerzuim} onToggle={() => setOpenVerzuim(v => !v)} />
+              {openVerzuim && (
+                missedBlokRows.length === 0 ? (
+                  <div className="py-6 text-center text-sm text-muted-foreground">Alle bloktijden OK ✓</div>
+                ) : (
+                  <>
+                    <ColHeaders cols={["Dag","BL1","BL2","BL3","BL4"]} template="68px 1fr 1fr 1fr 1fr" />
+                    <div className="divide-y divide-border/20">
+                      {missedBlokRows.map(dag => (
+                        <div key={dag.datum} className="grid px-4 items-center"
+                          style={{ gridTemplateColumns: "68px 1fr 1fr 1fr 1fr", minHeight: "36px" }}>
+                          <span className="text-xs font-semibold text-foreground">{dag.weekdagKort} {dag.dagStr}</span>
+                          <BlokBadge ok={dag.blok1Ok} />
+                          <BlokBadge ok={dag.blok2Ok} />
+                          <BlokBadge ok={dag.blok3Ok} />
+                          <BlokBadge ok={dag.blok4Ok} />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="px-4 py-2.5 border-t border-border/30 bg-muted/20">
+                      <p className="text-[10px] text-muted-foreground leading-relaxed">
+                        BL1 = inklok 07:00–08:00 · BL2 = uitklok pauze 11:45–12:30 · BL3 = inklok na pauze 13:30–14:30 · BL4 = uitklok 16:30–18:00
+                      </p>
+                    </div>
+                  </>
+                )
               )}
             </Card>
           </>
