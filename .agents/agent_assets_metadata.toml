@@ -23,3 +23,15 @@ id = "dKK6IDHMkG33i5YAlsHfV"
 uri = "file://attached_assets/stock_images/productie.jpg"
 type = "image"
 title = "aerial view land surveying cartography topographic map measurement outdoor fieldwork"
+
+[[outputs]]
+id = "6LHKtCg2v3e8W7fSNM6KK"
+uri = "file://client/public/icon-192.png"
+type = "image"
+title = "KD icon 192×192"
+
+[[outputs]]
+id = "I1m5pYIcHThmBK7Fwf6ej"
+uri = "file://client/public/icon-512.png"
+type = "image"
+title = "KD icon 512×512"
