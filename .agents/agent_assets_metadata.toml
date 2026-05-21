@@ -35,3 +35,9 @@ id = "I1m5pYIcHThmBK7Fwf6ej"
 uri = "file://client/public/icon-512.png"
 type = "image"
 title = "KD icon 512×512"
+
+[[outputs]]
+id = "3RlKV1WDnoGqLexWJ5B_q"
+uri = "file://client/public/favicon.png"
+type = "image"
+title = "KD favicon 128×128"
